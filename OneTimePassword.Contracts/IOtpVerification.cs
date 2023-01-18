@@ -1,6 +1,7 @@
-﻿using OneTimePassword.Business.Options;
+﻿using OneTimePassword.Shared;
+using OneTimePassword.Shared.Options;
 
-namespace OneTimePassword.Shared.Contracts;
+namespace OneTimePassword.Contracts;
 
 public interface IOtpVerification
 {

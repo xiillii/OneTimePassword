@@ -1,4 +1,4 @@
-﻿namespace OneTimePassword.Business.Options;
+﻿namespace OneTimePassword.Shared.Options;
 
 public class OtpVerificationOptions
 {

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using OneTimePassword.Shared.Contracts;
+using OneTimePassword.Contracts;
+
 
 namespace OneTimePassword.WepApi.Controllers
 {
