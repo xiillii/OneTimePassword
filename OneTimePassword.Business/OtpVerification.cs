@@ -1,54 +1,143 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Security.Cryptography;
+using System.Text.Json;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
 using OneTimePassword.Contracts;
 using OneTimePassword.Shared;
 using OneTimePassword.Shared.Options;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.CSharp.RuntimeBinder;
+using Microsoft.Extensions.Options;
 
 namespace OneTimePassword.Business
 {
-    internal class OtpVerification : IOtpVerification
+    public class OtpVerification : IOtpVerification
     {
-        public OtpVia Generate(string id)
-        {
-            throw new NotImplementedException();
-        }
+        private readonly IHttpContextAccessor _httpContext;
+        private readonly IDistributedCache? _distributedCache;
+        private readonly IMemoryCache? _memoryCache;
+        private readonly IDataProtector _dataProtection;
+        private readonly OtpVerificationOptions _options;
 
-        public OtpVia Generate(string id, out DateTimeOffset expire)
-        {
-            throw new NotImplementedException();
-        }
+        private record IdPlain(string Id, string Plain);
 
-        public OtpVia Generate(string id, OtpVerificationOptions options)
+        private string BaseOtpUrl => $"{_httpContext.HttpContext?.Request.Scheme}://{_httpContext.HttpContext?.Request.Host}/{nameof(OtpVerification)}";
+
+        
+
+        public OtpVerification(IDataProtectionProvider dataProtection, IHttpContextAccessor accessor,
+            IDistributedCache? distributedCache = null, IMemoryCache? memoryCache = null,
+            IOptions<OtpVerificationOptions>? options = null)
         {
-            throw new NotImplementedException();
+            _dataProtection = dataProtection.CreateProtector("ZdNR4D-NpB9Fx-djDh2I");
+            _httpContext = accessor;
+            _distributedCache = distributedCache;
+            _memoryCache = memoryCache;
+            _options = options?.Value ?? new OtpVerificationOptions();
         }
 
         public OtpVia Generate(string id, OtpVerificationOptions options, out DateTimeOffset expire)
         {
-            throw new NotImplementedException();
+            var plain = OtpVerificationExtension.Generate(options, out expire, out string hash);
+            var url = string.Empty;
+
+            if (options.IsInMemoryCache)
+            {
+                _memoryCache?.Set(Key(id), hash, new MemoryCacheEntryOptions
+                {
+                    AbsoluteExpiration = expire,
+                    Priority = CacheItemPriority.High
+                });
+            }
+            else
+            {
+                _distributedCache?.SetString(Key(id), hash, new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpiration = expire
+                });
+            }
+
+            if (options.EnableUrl)
+            {
+                url = BaseOtpUrl + _dataProtection.Protect(JsonSerializer.Serialize(new IdPlain(id, plain)));
+            }
+
+            return new OtpVia(plain, url);
         }
 
-        public bool Scan(string id, string plain)
-        {
-            throw new NotImplementedException();
-        }
+        public OtpVia Generate(string id) => Generate(id, out _);
+
+        public OtpVia Generate(string id, out DateTimeOffset expire) => Generate(id, _options, out expire);
+
+        public OtpVia Generate(string id, OtpVerificationOptions options) => Generate(id, options, out _);
+
+        
 
         public bool Scan(string id, string plain, OtpVerificationOptions options)
         {
-            throw new NotImplementedException();
+            var hash = options.IsInMemoryCache ? _memoryCache?.Get<string>(Key(id)) : _distributedCache?.GetString(Key(id));
+
+            if (hash is null)
+            {
+                return false;
+            }
+
+            if (OtpVerificationExtension.Scan(plain, hash, options))
+            {
+                if (options.IsInMemoryCache)
+                {
+                    _memoryCache?.Remove(Key(id));
+                }
+                else
+                {
+                    _distributedCache?.Remove(Key(id));
+                }
+                return true;
+            }
+
+            return false;
         }
 
-        public bool Scan(string id, string plain, int expire)
+        public bool Scan(string id, string plain) => Scan(id, plain, _options);
+
+
+        public bool Scan(string id, string plain, int expire) => Scan(id, plain, new OtpVerificationOptions { Expire = expire });
+
+        public bool Scan(string url) => TryUnprotectUrl(url, out var id, out var code) && Scan(id, code);
+
+
+        private string Key(string id)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrEmpty(id))
+            {
+                throw new ArgumentNullException(nameof(id), "Cannot be null or empty");
+            }
+
+            return $"{nameof(OtpVerification)}:{id}";
         }
 
-        public bool Scan(string url)
+        private bool TryUnprotectUrl(string key, out string id, out string plain)
         {
-            throw new NotImplementedException();
+            id = plain = string.Empty;
+
+            try
+            {
+                var data = _dataProtection.Unprotect(key);
+
+                var obj = JsonSerializer.Deserialize<IdPlain>(data);
+                if (obj != null)
+                {
+                    id = obj.Id;
+                    plain = obj.Plain;
+                }
+
+                return true;
+            }
+            catch (Exception e) when (e is CryptographicException or RuntimeBinderException)
+            {
+                return false;
+            }
         }
     }
 }

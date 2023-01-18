@@ -17,7 +17,7 @@ public class OtpVerificationOptions
     /// Number of complexity of rounds hashing
     /// <para>Default value = 1</para>
     /// </summary>
-    public int Iteration { get; set; } = 1;
+    public int Iterations { get; set; } = 1;
 
     /// <summary>
     /// Number of char code generator to hash
