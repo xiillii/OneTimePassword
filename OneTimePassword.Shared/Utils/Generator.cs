@@ -56,7 +56,7 @@ public class RandomString
             for (var i = 0; i < option.Size; i++)
             {
                 var rnd = BitConverter.ToUInt32(data, i * 4);
-                var idx = rnd * range.Length;
+                var idx = rnd % range.Length;
                 result.Append(range[idx]);
             }
         }

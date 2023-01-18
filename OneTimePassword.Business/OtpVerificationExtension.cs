@@ -5,7 +5,7 @@ namespace OneTimePassword.Business;
 
 public class OtpVerificationExtension : SecureHasher
 {
-    public static string Generate(OtpVerificationOptions options, out DateTimeOffset expire, out string hash)
+    public static string Generate(OtpVerificationOptions options, out DateTime expire, out string hash)
     {
         if (options is null)
         {
@@ -32,17 +32,17 @@ public class OtpVerificationExtension : SecureHasher
             throw new ArgumentException("Can't be 0 or low", nameof(options.Iterations));
         }
 
-        var dateNow = DateTimeOffset.UtcNow;
+        var dateNow = DateTime.Now;
         var plain = RandomString.Generate(options.Size, StringsOfLetters.Number);
 
         expire = dateNow.AddSeconds(59 - dateNow.Second).AddMinutes(options.Expire - 1);
 
-        hash = Hash(plain + dateNow.ToString("O"), options.Length, options.Iterations);
+        hash = Hash(plain + dateNow.ToString("yyyyMMddHHmm"), options.Length, options.Iterations);
 
         return plain;
     }
 
-    public static string Generate(out DateTimeOffset expire, out string hash) =>
+    public static string Generate(out DateTime expire, out string hash) =>
         Generate(new OtpVerificationOptions(), out expire, out hash);
 
     public static string Generate(OtpVerificationOptions options, out string hash) =>
@@ -50,10 +50,10 @@ public class OtpVerificationExtension : SecureHasher
 
     public static string Generate(out string hash) => Generate(new OtpVerificationOptions(), out hash);
 
-    public static string Generate(OtpVerificationOptions options, out DateTimeOffset expire) =>
+    public static string Generate(OtpVerificationOptions options, out DateTime expire) =>
         Generate(options, out expire, out _);
 
-    public static string Generate(out DateTimeOffset expire) =>
+    public static string Generate(out DateTime expire) =>
         Generate(new OtpVerificationOptions(), out expire, out _);
 
     public static string Generate(OtpVerificationOptions options) => Generate(options, out _, out _);
@@ -77,7 +77,7 @@ public class OtpVerificationExtension : SecureHasher
 
         do
         {
-            verify = Verify(plain + DateTimeOffset.UtcNow.AddMinutes(-begin).ToString("O"), hash);
+            verify = Verify(plain + DateTime.Now.AddMinutes(-begin).ToString("yyyyMMddHHmm"), hash);
             begin++;
         } while (verify == false && begin <= options.Expire);
 

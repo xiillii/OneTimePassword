@@ -22,7 +22,8 @@ namespace OneTimePassword.Business
 
         private record IdPlain(string Id, string Plain);
 
-        private string BaseOtpUrl => $"{_httpContext.HttpContext?.Request.Scheme}://{_httpContext.HttpContext?.Request.Host}/{nameof(OtpVerification)}";
+        private string BaseOtpUrl =>
+            $"{_httpContext.HttpContext?.Request.Scheme}://{_httpContext.HttpContext?.Request.Host}/{nameof(OtpVerification)}/";
 
         
 
@@ -37,7 +38,7 @@ namespace OneTimePassword.Business
             _options = options?.Value ?? new OtpVerificationOptions();
         }
 
-        public OtpVia Generate(string id, OtpVerificationOptions options, out DateTimeOffset expire)
+        public OtpVia Generate(string id, OtpVerificationOptions options, out DateTime expire)
         {
             var plain = OtpVerificationExtension.Generate(options, out expire, out string hash);
             var url = string.Empty;
@@ -68,7 +69,7 @@ namespace OneTimePassword.Business
 
         public OtpVia Generate(string id) => Generate(id, out _);
 
-        public OtpVia Generate(string id, out DateTimeOffset expire) => Generate(id, _options, out expire);
+        public OtpVia Generate(string id, out DateTime expire) => Generate(id, _options, out expire);
 
         public OtpVia Generate(string id, OtpVerificationOptions options) => Generate(id, options, out _);
 
